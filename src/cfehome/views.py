@@ -6,6 +6,3 @@ def hello_world(request):
 
 def health_view(request):
     return HttpResponse("OK")
-
-def home(request):
-    return render(request, "hello-world.html")
