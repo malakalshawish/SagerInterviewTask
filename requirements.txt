@@ -2,3 +2,6 @@ Django==6.0.2
 python-decouple
 python-dotenv
 gunicorn
+dj-database-url
+psycopg[binary]
+whitenoise
