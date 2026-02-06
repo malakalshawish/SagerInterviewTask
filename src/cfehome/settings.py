@@ -57,6 +57,9 @@ INSTALLED_APPS = [
     'commando',
 ]
 
+if DEBUG:
+    INSTALLED_APPS.append("whitenoise.runserver_nostatic")
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
