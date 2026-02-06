@@ -141,5 +141,22 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
 
+#send static files to this directory when we run collectstatic
+#locked files that do not change during runtime
+#external static file server
+STATIC_ROOT = BASE_DIR / "static-root"
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+
+#retain a copy of static files in our repo for development and debugging purposes
+#unlocked files that can change during dev
+STATICFILES_DIRS = [
+    BASE_DIR / "staticfiles"
+]
+    
+STORAGES = {
+    # ...
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
