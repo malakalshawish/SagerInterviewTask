@@ -143,12 +143,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = "/static/"
+STATIC_URL = "static/"
 
 #send static files to this directory when we run collectstatic
 #locked files that do not change during runtime
 #external static file server
-STATIC_ROOT = BASE_DIR / "static-root"
+STATIC_ROOT = BASE_DIR / "static_root"
 STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 
 #retain a copy of static files in our repo for development and debugging purposes
