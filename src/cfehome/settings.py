@@ -32,8 +32,7 @@ PROJECT_NAME = config("PROJECT_NAME", default="Unset Project Name")
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("DJANGO_SECRET_KEY", cast=str, default=get_random_secret_key)
-print(SECRET_KEY)
+SECRET_KEY = config("DJANGO_SECRET_KEY", cast=str, default=get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DJANGO_DEBUG", cast=bool, default = False) 
@@ -55,6 +54,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'commando',
 ]
 
 MIDDLEWARE = [
