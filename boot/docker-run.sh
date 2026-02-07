@@ -6,7 +6,7 @@ cd /code
 python manage.py migrate --noinput 
 python manage.py auto_admin --force
 
-PORT=8081
+PORT=8080
 
 export RUNTIME_PORT=${PORT:-8080}
 export RUNTIME_HOST=${HOST:-0.0.0.0}
