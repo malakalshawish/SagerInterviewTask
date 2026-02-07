@@ -41,6 +41,7 @@ EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool, default=True)  # Use EMAIL_PO
 EMAIL_USE_SSL = config("EMAIL_USE_SSL", cast=bool, default=False)  # EUse MAIL_PORT 465 for SSL
 
 #via gmail
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
 ADMIN_USER_NAME=config("ADMIN_USER_NAME", default="Admin user")
 ADMIN_USER_EMAIL=config("ADMIN_USER_EMAIL", default=None)
@@ -60,9 +61,11 @@ SECRET_KEY = config("DJANGO_SECRET_KEY", cast=str, default=get_random_secret_key
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DJANGO_DEBUG", cast=bool, default = False) 
 
-ALLOWED_HOSTS = [".railway.app"]
+ALLOWED_HOSTS = [
+    ".railway.app", "djangofirst.com"]
 
-CSRF_TRUSTED_ORIGINS = ["https://*.railway.app"]
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.railway.app", "https://*.djangofirst.com"]
 
 if DEBUG:
     ALLOWED_HOSTS = ["*"]
