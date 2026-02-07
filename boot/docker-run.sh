@@ -6,8 +6,11 @@ cd /code
 python manage.py migrate --noinput 
 python manage.py auto_admin --force
 
-export RUNTIME_PORT=8080
+PORT=8081
+
+export RUNTIME_PORT=${PORT:-8080}
+export RUNTIME_HOST=${HOST:-0.0.0.0}
 
 #add static files to the container itself during run time
 #python manage.py collectstatic --no-input 
-gunicorn cfehome.wsgi:application --bind 0.0.0.0:$RUNTIME_PORT
+gunicorn cfehome.wsgi:application --bind $RUNTIME_HOST:$RUNTIME_PORT
