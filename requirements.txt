@@ -5,3 +5,6 @@ gunicorn
 dj-database-url
 psycopg[binary]
 whitenoise[brotli]
+djangorestframework
+drf-spectacular
+paho-mqtt
