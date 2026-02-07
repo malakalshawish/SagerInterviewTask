@@ -67,6 +67,13 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://*.railway.app", "https://*.djangofirst.com"]
 
+
+#when DEBUG is False, we want to ensure that cookies are only sent over HTTPS connections for security reasons
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE= not DEBUG
+
+
+
 if DEBUG:
     ALLOWED_HOSTS = ["*"]
 
