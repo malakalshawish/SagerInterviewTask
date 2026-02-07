@@ -89,6 +89,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'commando',
     'drones',
+    "rest_framework",
+    "drf_spectacular",
 ]
 
 if DEBUG:
@@ -196,4 +198,8 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
+}
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
