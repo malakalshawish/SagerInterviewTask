@@ -13,8 +13,6 @@ class DroneSerializer(serializers.ModelSerializer):
             "last_seen",
             "last_lat",
             "last_lng",
-            "last_height_m",
-            "last_horizontal_speed_mps",
             "is_dangerous",
             "danger_reasons",
         ]
