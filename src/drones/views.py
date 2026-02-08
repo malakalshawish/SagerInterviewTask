@@ -5,6 +5,10 @@ from .models import Drone
 from .serializers import DroneSerializer
 from django.utils import timezone
 from datetime import timedelta
+from .utils import haversine_km
+from rest_framework import status
+
+
 
 
 # Create your views here.
@@ -12,29 +16,28 @@ from datetime import timedelta
 class DroneListView(APIView):
     #function that gets called when a GET request is made to this endpoint
     def get(self, request):
-        """
-        Retrieve a list of drones, optionally filtered by serial number.
+        # Retrieve a list of drones, optionally filtered by serial number.
 
-        This method handles GET requests to fetch drone records from the database.
-        It supports optional filtering by serial number using a case-insensitive
-        partial match.
+        # This method handles GET requests to fetch drone records from the database.
+        # It supports optional filtering by serial number using a case-insensitive
+        # partial match.
 
-        Args:
-            request: The HTTP request object containing query parameters.
+        # Args:
+        #     request: The HTTP request object containing query parameters.
 
-        Query Parameters:
-            serial (str, optional): Filter drones by serial number (case-insensitive,
-                partial match). Example: ?serial=abc123
+        # Query Parameters:
+        #     serial (str, optional): Filter drones by serial number (case-insensitive,
+        #         partial match). Example: ?serial=abc123
 
-        Returns:
-            Response: A DRF Response object containing:
-                - Serialized list of drone objects matching the criteria
-                - HTTP 200 status code
+        # Returns:
+        #     Response: A DRF Response object containing:
+        #         - Serialized list of drone objects matching the criteria
+        #         - HTTP 200 status code
 
-        Example:
-            GET /api/drones/              # Returns all drones
-            GET /api/drones/?serial=abc   # Returns drones with 'abc' in serial number
-        """
+        # Example:
+        #     GET /api/drones/              # Returns all drones
+        #     GET /api/drones/?serial=abc   # Returns drones with 'abc' in serial number
+        
         #drones is now a list-like object of drone instances
         serial = request.query_params.get("serial")
         #serial filtering example: /api/drones/?serial=abc123 would return drones with "abc123" in their serial number
@@ -48,6 +51,16 @@ class DroneListView(APIView):
 
 
 class OnlineDroneListView(APIView):
+    # Retrieve a list of drones that are currently online.
+    # This method handles GET requests to fetch drone records that are considered "online" based on their last seen timestamp. 
+    # A drone is considered online if it has been seen within the last 30 seconds.
+    # Returns:
+    #     Response: A DRF Response object containing:
+    #         - Serialized list of online drone objects
+    #         - HTTP 200 status code
+    # Example:
+    # GET /api/drones/online/  # Returns drones seen in the last 30 seconds
+
 
     def get(self, request):
         #define "online" as seen in the last 30 seconds
@@ -60,6 +73,41 @@ class OnlineDroneListView(APIView):
         serializer = DroneSerializer(drones, many=True)
         return Response(serializer.data)
 
+
+class NearbyDroneListView(APIView):
+    # read query params
+    # validate presence
+    # validate numeric
+    # fetch drones with coordinates
+    # compute distance
+    # filter within 5 km
+    # return JSON
+
+    def get(self, request):
+        #query parameters are strings
+        lat = request.query_params.get("lat")
+        lng = request.query_params.get("lng")
+        
+        if lat is None or lng is None:
+            return Response({"detail": "Query parameters 'lat' and 'lng' are required."},
+            status=status.HTTP_400_BAD_REQUEST,)
+        try:
+            lat = float(lat)
+            lng = float(lng)
+        except (TypeError, ValueError):
+            return Response({"detail": "Query parameters 'lat' and 'lng' must be valid numbers."},
+            status=status.HTTP_400_BAD_REQUEST,)
+        drones = Drone.objects.exclude(last_lat__isnull=True).exclude(last_lng__isnull=True)
+        
+        #calculate distance from each drone to the provided lat/lng and filter to those within 5 km
+        nearby = []
+        for drone in drones:
+            distance = haversine_km(lat, lng, drone.last_lat, drone.last_lng)
+            if distance <= 5:
+                nearby.append(drone)
+        serializer = DroneSerializer(nearby, many=True)
+        return Response(serializer.data)
+            
 
 
 
