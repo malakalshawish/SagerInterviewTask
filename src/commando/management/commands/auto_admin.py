@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 
 from decouple import config
 
-
+# Custom Django management command to automatically create an admin user if one doesn't exist.
 class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(

@@ -144,11 +144,25 @@ class TelemetryIngestView(APIView):
             height_m=data.get("height_m"),
             horizontal_speed_mps=data.get("horizontal_speed_mps"),
         )
+        reasons = []
+
+        height_m = data.get("height_m")
+        speed_mps = data.get("horizontal_speed_mps")
+
+        if height_m is not None and height_m > 500:
+            reasons.append("Altitude greater than 500 meters")
+
+        if speed_mps is not None and speed_mps > 10:
+            reasons.append("Horizontal speed greater than 10 m/s")
+
+        drone.is_dangerous = len(reasons) > 0
+        drone.danger_reasons = reasons
+
         #update the drone's latest known state with the telemetry data
         drone.last_seen = timestamp
         drone.last_lat = data["lat"]
         drone.last_lng = data["lng"]
-        drone.save(update_fields=["last_seen", "last_lat", "last_lng"])
+        drone.save(update_fields=["last_seen", "last_lat", "last_lng", "is_dangerous", "danger_reasons"])
         return Response({"detail": "Telemetry ingested", "drone_id": drone.id, "telemetry_id": telemetry.id},
         status=status.HTTP_201_CREATED,)
 
