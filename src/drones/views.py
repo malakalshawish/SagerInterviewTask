@@ -1,3 +1,4 @@
+from ast import If
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -7,6 +8,8 @@ from django.utils import timezone
 from datetime import timedelta
 from .utils import haversine_km
 from rest_framework import status
+from .telemetry_serializer import TelemetryInSerializer
+from .models import Drone, DroneTelemetry
 
 
 
@@ -87,7 +90,7 @@ class NearbyDroneListView(APIView):
         #query parameters are strings
         lat = request.query_params.get("lat")
         lng = request.query_params.get("lng")
-        
+        #validate that lat and lng are present and can be converted to floats
         if lat is None or lng is None:
             return Response({"detail": "Query parameters 'lat' and 'lng' are required."},
             status=status.HTTP_400_BAD_REQUEST,)
@@ -97,6 +100,7 @@ class NearbyDroneListView(APIView):
         except (TypeError, ValueError):
             return Response({"detail": "Query parameters 'lat' and 'lng' must be valid numbers."},
             status=status.HTTP_400_BAD_REQUEST,)
+        #fetch drones with known coordinates
         drones = Drone.objects.exclude(last_lat__isnull=True).exclude(last_lng__isnull=True)
         
         #calculate distance from each drone to the provided lat/lng and filter to those within 5 km
@@ -105,9 +109,51 @@ class NearbyDroneListView(APIView):
             distance = haversine_km(lat, lng, drone.last_lat, drone.last_lng)
             if distance <= 5:
                 nearby.append(drone)
+        #serialize the nearby drones and return as JSON
         serializer = DroneSerializer(nearby, many=True)
         return Response(serializer.data)
             
+
+#handle POST requests to ingest telemetry data from drones
+#send data to a server to create a new resource or trigger an action
+class TelemetryIngestView(APIView):
+    # Wraps the incoming JSON in serializer
+    # Validates required fields and types
+    # If invalid → DRF automatically returns a clean 400 with details
+    # If valid → you get data as clean Python values (floats, datetime)
+
+    def post(self, request):
+        serializer = TelemetryInSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        serial = data["serial"]
+        #get_or_create is a Django method that tries to find an existing record with the given parameters, 
+        # and if it doesn't find one, it creates a new record with those parameters. 
+        #It returns a tuple of (object, created), where object is the retrieved or created instance, 
+        #and created is a boolean indicating whether a new record was created.
+        drone, _ = Drone.objects.get_or_create(
+            serial=serial,
+        )
+        timestamp = data.get("timestamp") or timezone.now()
+        #update the drone's last seen info with the latest telemetry data
+        telemetry = DroneTelemetry.objects.create(
+            drone=drone,
+            timestamp=timestamp,
+            lat=data["lat"],
+            lng=data["lng"],
+            height_m=data.get("height_m"),
+            horizontal_speed_mps=data.get("horizontal_speed_mps"),
+        )
+        #update the drone's latest known state with the telemetry data
+        drone.last_seen = timestamp
+        drone.last_lat = data["lat"]
+        drone.last_lng = data["lng"]
+        drone.save(update_fields=["last_seen", "last_lat", "last_lng"])
+        return Response({"detail": "Telemetry ingested", "drone_id": drone.id, "telemetry_id": telemetry.id},
+        status=status.HTTP_201_CREATED,)
+
+
+
 
 
 
