@@ -8,8 +8,10 @@ from django.utils import timezone
 from datetime import timedelta
 from .utils import haversine_km
 from rest_framework import status
-from .telemetry_serializer import TelemetryInSerializer
+from .telemetry_in_serializer import TelemetryInSerializer
 from .models import Drone, DroneTelemetry
+from django.shortcuts import get_object_or_404
+from .telemetry_out_serializer import DroneTelemetrySerializer
 
 
 
@@ -168,6 +170,13 @@ class TelemetryIngestView(APIView):
 
 
 
-
-
-
+class DroneTelemetryListView(APIView):
+    #404 if serial doesn’t exist
+    #returns telemetry points ordered by timestamp for a given drone serial number
+    def get(self, request, serial):
+        drone = get_object_or_404(Drone, serial=serial)
+        #query the database for telemetry records associated with the drone, ordered by timestamp
+        qs = DroneTelemetry.objects.filter(drone=drone).order_by("timestamp")
+        #serialize the queryset of telemetry records into a list of dictionaries and return as JSON
+        serializer = DroneTelemetrySerializer(qs, many=True)
+        return Response(serializer.data)

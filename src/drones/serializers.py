@@ -19,3 +19,4 @@ class DroneSerializer(serializers.ModelSerializer):
             "is_dangerous",
             "danger_reasons",
         ]
+

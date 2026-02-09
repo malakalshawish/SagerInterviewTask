@@ -6,11 +6,20 @@ from rest_framework import serializers
 #serializers.Serializer is a DRF class that allows us to define custom serializers that are not directly tied to a Django model, 
 # #which is useful for validating input data that may not correspond directly to a model instance
 
+
+#Is this incoming telemetry payload valid, safe, and usable?
 class TelemetryInSerializer(serializers.Serializer):
+    # Validates raw JSON sent by a client / MQTT
+    # Ensures required fields exist
+    # Ensures types are correct
+    # Converts strings → Python types
+    # Does NOT talk to the database
+    
     #required fields for incoming telemetry data
     serial = serializers.CharField(max_length=64)
     lat = serializers.FloatField()
     lng = serializers.FloatField()
+    
     #optional fields for incoming telemetry data
     timestamp = serializers.DateTimeField(required=False)
     height_m = serializers.FloatField(required=False)

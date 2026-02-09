@@ -32,6 +32,7 @@ class Drone(models.Model):
 
 class DroneTelemetry(models.Model):
     #who does this belong to? should be exactly one drone per telemetry record
+    #foreign key creates a relationship between this model and the Drone model, allowing us to easily query telemetry records for a given drone and vice versa
     drone = models.ForeignKey(Drone, on_delete=models.CASCADE, related_name="telemetry")
     
     #when did this telemetry record occur?
