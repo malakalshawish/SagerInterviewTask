@@ -8,10 +8,10 @@ Built with **Django + Django REST Framework**, PostgreSQL, and MQTT.
 
 ## Features
 
-- **Telemetry ingestion**
+-**Telemetry ingestion**
   - REST endpoint (`POST /api/telemetry/`)
   - MQTT subscriber (background worker)
-- **Drone management**
+-**Drone management**
   - List all drones
   - List online drones (last seen within 30s)
   - List dangerous drones
@@ -165,6 +165,81 @@ python manage.py test
 - Clean separation of concerns
 
 ---
+
+
+---
+
+## Architecture
+
+The system is designed with a clear separation of concerns to support multiple ingestion methods (REST and MQTT) while avoiding duplicated logic.
+
+### High-level flow
+
+```
+          ┌──────────────┐
+          │   REST API   │
+          │  (HTTP POST) │
+          └──────┬───────┘
+                 │
+                 │ validated JSON
+                 ▼
+        ┌────────────────────┐
+        │  TelemetryInSerializer │
+        │  (input validation) │
+        └─────────┬──────────┘
+                  │ validated_data
+                  ▼
+        ┌────────────────────┐
+        │   Service Layer    │
+        │ ingest_telemetry() │
+        │ (business logic)   │
+        └─────────┬──────────┘
+                  │
+        ┌─────────▼──────────┐
+        │    PostgreSQL DB   │
+        │  Drone / Telemetry │
+        └────────────────────┘
+
+
+          ┌──────────────┐
+          │     MQTT     │
+          │   Subscriber │
+          └──────┬───────┘
+                 │ JSON payload
+                 ▼
+        ┌────────────────────┐
+        │  TelemetryInSerializer │
+        │  (same validation) │
+        └─────────┬──────────┘
+                  │ validated_data
+                  ▼
+        ┌────────────────────┐
+        │   Service Layer    │
+        │ ingest_telemetry() │
+        │ (shared logic)     │
+        └─────────┬──────────┘
+                  │
+        ┌─────────▼──────────┐
+        │    PostgreSQL DB   │
+        └────────────────────┘
+```
+
+### Key design decisions
+
+- **Single source of truth for ingestion logic**  
+  All telemetry processing (creation, danger classification, state updates) lives in `services.py`.
+
+- **Transport-agnostic business logic**  
+  The service layer does not depend on HTTP or MQTT, making it reusable and testable.
+
+- **Serializer-driven validation**  
+  Both REST and MQTT use the same `TelemetryInSerializer` to guarantee identical validation rules.
+
+- **Process separation**  
+  - REST API runs as a web process
+  - MQTT subscriber runs as a background worker (`python manage.py run_mqtt`)
+
+This architecture allows the system to scale ingestion sources without increasing complexity or duplicating code.
 
 ## Deployment Notes
 
