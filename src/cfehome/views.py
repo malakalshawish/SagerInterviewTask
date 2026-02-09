@@ -3,7 +3,9 @@ from django.http import HttpResponse
 from django.conf import settings
 from drf_spectacular.utils import extend_schema
 from rest_framework.views import APIView
-from .serializers import DroneSerializer, TelemetryInSerializer, DroneTelemetrySerializer
+from drones.serializers import DroneSerializer
+from drones.telemetry_in_serializer import TelemetryInSerializer
+from drones.serializers import DroneTelemetrySerializer
 
     
 @extend_schema(responses=DroneSerializer(many=True), tags=["drones"])
