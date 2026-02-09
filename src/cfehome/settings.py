@@ -200,6 +200,16 @@ STORAGES = {
     },
 }
 
+# Default primary key field type
+#for new models, use BigAutoField which is a 64-bit integer that can handle a larger number of records than the default AutoField which is a 32-bit integer
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+#for API documentation generation with drf-spectacular
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Sager Interview Task API",
+    "DESCRIPTION": "Drone telemetry backend",
+    "VERSION": "1.0.0",
 }
