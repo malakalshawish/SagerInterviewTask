@@ -206,3 +206,17 @@ class DronePathGeoJSONView(APIView):
                 "properties": {"serial": drone.serial, "count": len(coordinates)},
             }
         )
+
+# this view returns a list of drones that are classified as dangerous, 
+# which can be used by clients to identify potential threats or hazards in the area 
+# based on the latest telemetry data and the defined criteria for dangerous behavior. 
+# By filtering the drones based on their dangerous classification, 
+# this endpoint allows clients to quickly access information about drones that may pose a risk, 
+# enabling them to take appropriate actions or precautions.
+class DangerousDroneListView(APIView):
+
+    def get(self, request):
+        #query the database for drones that are classified as dangerous, ordered by serial number
+        qs = Drone.objects.filter(is_dangerous=True).order_by("serial")
+        serializer = DroneSerializer(qs, many=True)
+        return Response(serializer.data)
