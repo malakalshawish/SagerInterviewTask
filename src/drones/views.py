@@ -1,19 +1,23 @@
-from ast import If
-from django.shortcuts import render
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from .models import Drone
-from .serializers import DroneSerializer
-from django.utils import timezone
 from datetime import timedelta
-from .utils import haversine_km
-from rest_framework import status
-from .telemetry_in_serializer import TelemetryInSerializer
-from .models import Drone, DroneTelemetry
+
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
+
+from .models import Drone, DroneTelemetry
+from .serializers import DroneSerializer
+from .telemetry_in_serializer import TelemetryInSerializer
 from .telemetry_out_serializer import DroneTelemetrySerializer
-from drf_spectacular.utils import extend_schema
-from drf_spectacular.utils import OpenApiResponse, OpenApiParameter
+from .utils import haversine_km
+from .telemetry_response_serializer import TelemetryIngestResponseSerializer
+
+# Alias for backward compatibility
+TelemetryOutSerializer = DroneTelemetrySerializer
 
 
 #decorator that adds schema information for API documentation generation, specifying the expected response format and tags for categorization
@@ -72,14 +76,8 @@ class OnlineDroneListView(APIView):
     # Example:
     # GET /api/drones/online/  # Returns drones seen in the last 30 seconds
     @extend_schema(
-        request=TelemetryInSerializer,
-        responses={
-            201: OpenApiResponse(
-                response=TelemetryOutSerializer,
-                description="Telemetry ingested"
-            )
-        },
-        tags=["telemetry"],
+        responses=DroneSerializer(many=True),
+        tags=["drones"],
     )
 
     def get(self, request):
@@ -147,20 +145,14 @@ class TelemetryIngestView(APIView):
     # If invalid → DRF automatically returns a clean 400 with details
     # If valid → you get data as clean Python values (floats, datetime)
     @extend_schema(
-    request=TelemetryInSerializer,
-    responses={
-        201: OpenApiResponse(
-            response=TelemetryOutSerializer,
-            description="Telemetry ingested"
-        )
-    },
-    tags=["telemetry"],
+        request=TelemetryInSerializer,
+        responses={201: TelemetryIngestResponseSerializer},
+        tags=["telemetry"],
     )
     def post(self, request):
         serializer = TelemetryInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        serial = data["serial"]
         #get_or_create is a Django method that tries to find an existing record with the given parameters, 
         # and if it doesn't find one, it creates a new record with those parameters. 
         #It returns a tuple of (object, created), where object is the retrieved or created instance, 
@@ -197,8 +189,15 @@ class TelemetryIngestView(APIView):
         drone.last_lat = data["lat"]
         drone.last_lng = data["lng"]
         drone.save(update_fields=["last_seen", "last_lat", "last_lng", "is_dangerous", "danger_reasons"])
-        return Response({"detail": "Telemetry ingested", "drone_id": drone.id, "telemetry_id": telemetry.id},
-        status=status.HTTP_201_CREATED,)
+        return Response(
+            {
+                "detail": "Telemetry ingested",
+                "drone_id": drone.id,
+                "telemetry_id": telemetry.id,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+        
 
 
 
@@ -234,7 +233,7 @@ class DronePathGeoJSONView(APIView):
         )
     },
     tags=["drones"],
-)
+    )
     def get(self, request, serial):
         drone = get_object_or_404(Drone, serial=serial)
         #query the database for telemetry records associated with the drone, ordered by timestamp
