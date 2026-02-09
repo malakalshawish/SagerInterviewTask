@@ -15,6 +15,7 @@ from .telemetry_in_serializer import TelemetryInSerializer
 from .telemetry_out_serializer import DroneTelemetrySerializer
 from .utils import haversine_km
 from .telemetry_response_serializer import TelemetryIngestResponseSerializer
+from .services import ingest_telemetry
 
 # Alias for backward compatibility
 TelemetryOutSerializer = DroneTelemetrySerializer
@@ -153,42 +154,18 @@ class TelemetryIngestView(APIView):
         serializer = TelemetryInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        #get_or_create is a Django method that tries to find an existing record with the given parameters, 
-        # and if it doesn't find one, it creates a new record with those parameters. 
-        #It returns a tuple of (object, created), where object is the retrieved or created instance, 
-        #and created is a boolean indicating whether a new record was created.
-        drone, _ = Drone.objects.get_or_create(
-            serial=serial,
-        )
-        timestamp = data.get("timestamp") or timezone.now()
-        #update the drone's last seen info with the latest telemetry data
-        telemetry = DroneTelemetry.objects.create(
-            drone=drone,
-            timestamp=timestamp,
-            lat=data["lat"],
-            lng=data["lng"],
-            height_m=data.get("height_m"),
-            horizontal_speed_mps=data.get("horizontal_speed_mps"),
-        )
-        reasons = []
 
-        height_m = data.get("height_m")
-        speed_mps = data.get("horizontal_speed_mps")
+        # We moved all database work + business logic (get_or_create, create telemetry,
+        # danger rules, and updating the drone's latest state) into services.py so it can be reused
+        # by BOTH the HTTP endpoint and the MQTT consumer.
+        #
+        # The view now only does:
+        # 1) validate input (serializer)
+        # 2) delegate to ingest_telemetry()
+        # 3) return an HTTP response
 
-        if height_m is not None and height_m > 500:
-            reasons.append("Altitude greater than 500 meters")
+        drone, telemetry = ingest_telemetry(data)
 
-        if speed_mps is not None and speed_mps > 10:
-            reasons.append("Horizontal speed greater than 10 m/s")
-
-        drone.is_dangerous = len(reasons) > 0
-        drone.danger_reasons = reasons
-
-        #update the drone's latest known state with the telemetry data
-        drone.last_seen = timestamp
-        drone.last_lat = data["lat"]
-        drone.last_lng = data["lng"]
-        drone.save(update_fields=["last_seen", "last_lat", "last_lng", "is_dangerous", "danger_reasons"])
         return Response(
             {
                 "detail": "Telemetry ingested",
@@ -197,7 +174,7 @@ class TelemetryIngestView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
-        
+            
 
 
 

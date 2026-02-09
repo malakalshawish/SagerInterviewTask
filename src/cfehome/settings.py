@@ -213,3 +213,10 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Drone telemetry backend",
     "VERSION": "1.0.0",
 }
+
+# MQTT settings
+MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
+MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
+MQTT_TOPIC = os.getenv("MQTT_TOPIC", "drones/telemetry")
+MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")

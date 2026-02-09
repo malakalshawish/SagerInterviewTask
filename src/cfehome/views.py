@@ -7,6 +7,13 @@ from drones.serializers import DroneSerializer
 from drones.telemetry_in_serializer import TelemetryInSerializer
 from drones.serializers import DroneTelemetrySerializer
 
+PROJECT_NAME = getattr(settings, "PROJECT_NAME", "Unset Project Views")
+
+def hello_world(request):
+    return render(request, "hello-world.html", {"project_name" : PROJECT_NAME})
+
+def health_view(request):
+    return HttpResponse("OK")
     
 @extend_schema(responses=DroneSerializer(many=True), tags=["drones"])
 class DroneListView(APIView):
