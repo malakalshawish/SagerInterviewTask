@@ -8,19 +8,19 @@ Built with **Django + Django REST Framework**, PostgreSQL, and MQTT.
 
 ## Features
 
-- **Telemetry ingestion**
+- 📡 **Telemetry ingestion**
   - REST endpoint (`POST /api/telemetry/`)
   - MQTT subscriber (background worker)
-- **Drone management**
+- 🛩 **Drone management**
   - List all drones
   - List online drones (last seen within 30s)
   - List dangerous drones
   - Find nearby drones (within 5 km)
--**Telemetry history**
+- 📍 **Telemetry history**
   - Per-drone telemetry list
   - GeoJSON flight path
--**OpenAPI / Swagger docs**
--**Automated tests**
+- 📖 **OpenAPI / Swagger docs**
+- 🧪 **Automated tests**
 
 ---
 
@@ -78,7 +78,7 @@ MQTT_PASSWORD=
 
 ## Setup
 
-### 1- Create virtual environment & install dependencies
+### 1️⃣ Create virtual environment & install dependencies
 
 ```bash
 python -m venv venv
@@ -86,13 +86,13 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2- Run migrations
+### 2️⃣ Run migrations
 
 ```bash
 python manage.py migrate
 ```
 
-### 3- Run server
+### 3️⃣ Run server
 
 ```bash
 python manage.py runserver
