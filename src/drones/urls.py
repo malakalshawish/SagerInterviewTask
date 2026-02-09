@@ -8,7 +8,6 @@ from .views import (
     DronePathGeoJSONView,
     DangerousDroneListView,
 )
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
     # endpoints will go here next
@@ -18,8 +17,5 @@ urlpatterns = [
     path("telemetry/", TelemetryIngestView.as_view(), name="telemetry-ingest"),
     path("drones/<str:serial>/telemetry/", DroneTelemetryListView.as_view(), name="drone-telemetry"),
     path("drones/<str:serial>/path/", DronePathGeoJSONView.as_view(), name="drone-path-geojson"),
-    path("drones/<str:serial>/path/geojson/", DronePathGeoJSONView.as_view(), name="drone-path-geojson"),
     path("drones/dangerous/", DangerousDroneListView.as_view(), name="dangerous-drone-list"),
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
