@@ -164,3 +164,9 @@ Notes / Assumptions
 	•	Nearby radius: 5 km
 	•	GeoJSON uses [lng, lat] coordinate order
 	•	PostgreSQL used for persistence
+
+## Database / Deployment
+The application uses PostgreSQL hosted on Railway.
+The `DATABASE_URL` environment variable is used for both local development and deployment.
+
+No code changes are required when switching between local and Railway environments.
