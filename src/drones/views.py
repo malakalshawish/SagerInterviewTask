@@ -180,3 +180,29 @@ class DroneTelemetryListView(APIView):
         #serialize the queryset of telemetry records into a list of dictionaries and return as JSON
         serializer = DroneTelemetrySerializer(qs, many=True)
         return Response(serializer.data)
+    
+
+
+    #the GeoJSON format is a standard for representing geographic data structures, 
+    # and in this case, we are creating a LineString geometry that represents the path of the drone 
+    # based on its recorded latitude and longitude coordinates over time.
+class DronePathGeoJSONView(APIView):
+    #404 if serial doesn’t exist
+    #returns a GeoJSON representation of the drone's path based on its telemetry data, which
+    #can be used for mapping applications or spatial analysis
+    def get(self, request, serial):
+        drone = get_object_or_404(Drone, serial=serial)
+        #query the database for telemetry records associated with the drone, ordered by timestamp
+        qs = DroneTelemetry.objects.filter(drone=drone).order_by("timestamp").values_list("lng", "lat")
+        #values_list with "lng" and "lat" will return a list of tuples like [(lng1, lat1), (lng2, lat2), ...]
+        #we convert this queryset into a list of [lng, lat] pairs to fit the GeoJSON format, 
+        # which expects coordinates in the form of [longitude, latitude]
+        coordinates = list(qs)
+
+        return Response(
+            {
+                "type": "Feature",
+                "geometry": {"type": "LineString", "coordinates": coordinates},
+                "properties": {"serial": drone.serial, "count": len(coordinates)},
+            }
+        )
