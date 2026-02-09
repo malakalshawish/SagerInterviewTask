@@ -12,13 +12,19 @@ from .telemetry_in_serializer import TelemetryInSerializer
 from .models import Drone, DroneTelemetry
 from django.shortcuts import get_object_or_404
 from .telemetry_out_serializer import DroneTelemetrySerializer
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, OpenApiParameter
 
 
-
+#decorator that adds schema information for API documentation generation, specifying the expected response format and tags for categorization
 
 # Create your views here.
 #each view corresponds to an endpoint in urls.py
 class DroneListView(APIView):
+    @extend_schema(
+    responses=DroneSerializer(many=True),
+    tags=["drones"],
+    )
     #function that gets called when a GET request is made to this endpoint
     def get(self, request):
         # Retrieve a list of drones, optionally filtered by serial number.
@@ -65,7 +71,16 @@ class OnlineDroneListView(APIView):
     #         - HTTP 200 status code
     # Example:
     # GET /api/drones/online/  # Returns drones seen in the last 30 seconds
-
+    @extend_schema(
+        request=TelemetryInSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=TelemetryOutSerializer,
+                description="Telemetry ingested"
+            )
+        },
+        tags=["telemetry"],
+    )
 
     def get(self, request):
         #define "online" as seen in the last 30 seconds
@@ -87,7 +102,15 @@ class NearbyDroneListView(APIView):
     # compute distance
     # filter within 5 km
     # return JSON
-
+    @extend_schema(
+    parameters=[
+        OpenApiParameter("lat", float, OpenApiParameter.QUERY, required=True),
+        OpenApiParameter("lng", float, OpenApiParameter.QUERY, required=True),
+    ],
+    responses=DroneSerializer(many=True),
+    tags=["drones"],
+    )
+    
     def get(self, request):
         #query parameters are strings
         lat = request.query_params.get("lat")
@@ -123,7 +146,16 @@ class TelemetryIngestView(APIView):
     # Validates required fields and types
     # If invalid → DRF automatically returns a clean 400 with details
     # If valid → you get data as clean Python values (floats, datetime)
-
+    @extend_schema(
+    request=TelemetryInSerializer,
+    responses={
+        201: OpenApiResponse(
+            response=TelemetryOutSerializer,
+            description="Telemetry ingested"
+        )
+    },
+    tags=["telemetry"],
+    )
     def post(self, request):
         serializer = TelemetryInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -173,6 +205,10 @@ class TelemetryIngestView(APIView):
 class DroneTelemetryListView(APIView):
     #404 if serial doesn’t exist
     #returns telemetry points ordered by timestamp for a given drone serial number
+    @extend_schema(
+    responses=DroneTelemetrySerializer(many=True),
+    tags=["telemetry"],
+    )
     def get(self, request, serial):
         drone = get_object_or_404(Drone, serial=serial)
         #query the database for telemetry records associated with the drone, ordered by timestamp
@@ -190,6 +226,15 @@ class DronePathGeoJSONView(APIView):
     #404 if serial doesn’t exist
     #returns a GeoJSON representation of the drone's path based on its telemetry data, which
     #can be used for mapping applications or spatial analysis
+    @extend_schema(
+    responses={
+        200: OpenApiResponse(
+            response=dict,
+            description="GeoJSON flight path"
+        )
+    },
+    tags=["drones"],
+)
     def get(self, request, serial):
         drone = get_object_or_404(Drone, serial=serial)
         #query the database for telemetry records associated with the drone, ordered by timestamp
@@ -214,6 +259,10 @@ class DronePathGeoJSONView(APIView):
 # this endpoint allows clients to quickly access information about drones that may pose a risk, 
 # enabling them to take appropriate actions or precautions.
 class DangerousDroneListView(APIView):
+    @extend_schema(
+    responses=DroneSerializer(many=True),
+    tags=["drones"],
+    )
 
     def get(self, request):
         #query the database for drones that are classified as dangerous, ordered by serial number
