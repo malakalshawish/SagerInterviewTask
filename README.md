@@ -240,8 +240,9 @@ The MQTT subscriber is implemented as a Django **management command**, following
 **Example:**
 ```bash
 python manage.py run_mqtt
-
+```
 ---
+
 
 ## Architecture
 
