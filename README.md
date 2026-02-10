@@ -323,3 +323,14 @@ This architecture allows the system to scale ingestion sources without increasin
   ```bash
   python manage.py run_mqtt
   ```
+
+## Testing
+
+This project includes both:
+- **Feature/integration tests** for REST endpoints (validation, persistence, responses)
+- **Unit tests** for core logic (Strategy Pattern classification + haversine distance)
+
+Run:
+```bash
+python manage.py test -v 2
+```
