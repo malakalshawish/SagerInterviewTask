@@ -7,7 +7,15 @@ from .models import Drone
 #ModelSerializer is a DRF class that automatically generates a serializer based on a Django model
 #by defining a Meta class inside the serializer, we specify which model to use and which fields to include in the serialized output
 #this means that when we return a Drone object in a response, it will be converted to JSON with the specified fields
+
 class DroneSerializer(serializers.ModelSerializer):
+    # explicitly tell OpenAPI it's an array of strings
+    danger_reasons = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+    )
+
     class Meta:
         model = Drone
         fields = [

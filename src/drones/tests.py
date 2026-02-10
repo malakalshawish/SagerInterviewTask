@@ -10,6 +10,7 @@ from rest_framework import status
 from drones.danger_strategies import default_classifier
 from drones.models import Drone, DroneTelemetry
 from drones.utils import haversine_km
+from django.test import override_settings
 
 
 class DroneAPITests(APITestCase):
@@ -414,3 +415,100 @@ class StrategyUnitTests(SimpleTestCase):
         classifier = default_classifier()
         reasons = classifier.classify(height_m=600, horizontal_speed_mps=12)
         self.assertTrue(len(reasons) >= 1)
+        
+
+#
+class GeofencingUnitTests(APITestCase):
+    """
+    Unit-ish tests for the strategy/classifier layer (no HTTP required).
+    These assume your classifier supports geofence checks based on lat/lng.
+    """
+
+    @override_settings(
+        DRONE_GEOFENCE_ZONES=[
+            {"name": "TestZone", "lat": 31.9500, "lng": 35.9100, "radius_km": 1.0}
+        ]
+    )
+    def test_classifier_returns_geofence_reason_when_inside_zone(self):
+        classifier = default_classifier()
+
+        # inside the 1km zone (tiny offset)
+        reasons = classifier.classify(
+            lat=31.9502,
+            lng=35.9102,
+            height_m=100,
+            horizontal_speed_mps=1,
+        )
+
+        # Keep this loose so you don’t get stuck on exact wording
+        self.assertTrue(any("geo" in r.lower() or "zone" in r.lower() for r in reasons))
+        self.assertTrue(any("testzone" in r.lower() for r in reasons))
+
+    @override_settings(
+        DRONE_GEOFENCE_ZONES=[
+            {"name": "TestZone", "lat": 31.9500, "lng": 35.9100, "radius_km": 1.0}
+        ]
+    )
+    def test_classifier_returns_no_geofence_reason_when_outside_zone(self):
+        classifier = default_classifier()
+
+        # far away from the zone
+        reasons = classifier.classify(
+            lat=32.0500,
+            lng=36.0100,
+            height_m=100,
+            horizontal_speed_mps=1,
+        )
+
+        self.assertFalse(any("geo" in r.lower() or "zone" in r.lower() for r in reasons))
+
+
+class GeofencingFeatureTests(APITestCase):
+    """
+    Feature/integration tests: go through the real API endpoint.
+    These assume your ingest_telemetry() passes lat/lng into the classifier
+    so geofencing can affect is_dangerous + danger_reasons.
+    """
+
+    @override_settings(
+        DRONE_GEOFENCE_ZONES=[
+            {"name": "TestZone", "lat": 31.9500, "lng": 35.9100, "radius_km": 1.0}
+        ]
+    )
+    def test_telemetry_inside_geofence_marks_drone_dangerous_even_if_alt_speed_safe(self):
+        payload = {
+            "serial": "DRONE_GEOFENCE_1",
+            "lat": 31.9502,
+            "lng": 35.9102,
+            "height_m": 10,               # safe
+            "horizontal_speed_mps": 1,    # safe
+        }
+
+        resp = self.client.post("/api/telemetry/", payload, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        drone = Drone.objects.get(serial="DRONE_GEOFENCE_1")
+        self.assertTrue(drone.is_dangerous)
+        self.assertIsInstance(drone.danger_reasons, list)
+        self.assertTrue(any("geo" in r.lower() or "zone" in r.lower() for r in drone.danger_reasons))
+
+    @override_settings(
+        DRONE_GEOFENCE_ZONES=[
+            {"name": "TestZone", "lat": 31.9500, "lng": 35.9100, "radius_km": 1.0}
+        ]
+    )
+    def test_telemetry_outside_geofence_does_not_mark_dangerous_if_alt_speed_safe(self):
+        payload = {
+            "serial": "DRONE_GEOFENCE_2",
+            "lat": 32.0500,               # outside
+            "lng": 36.0100,               # outside
+            "height_m": 10,               # safe
+            "horizontal_speed_mps": 1,    # safe
+        }
+
+        resp = self.client.post("/api/telemetry/", payload, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        drone = Drone.objects.get(serial="DRONE_GEOFENCE_2")
+        self.assertFalse(drone.is_dangerous)
+        self.assertTrue(drone.danger_reasons in ([], None))

@@ -44,8 +44,10 @@ def ingest_telemetry(validated_data: dict) -> tuple[Drone, DroneTelemetry]:
     #and we save the updated Drone record to the database with the new latest state and danger classification information.
     classifier = default_classifier()
     reasons = classifier.classify(
-        height_m=validated_data.get("height_m"),
-        horizontal_speed_mps=validated_data.get("horizontal_speed_mps"),
+    height_m=validated_data.get("height_m"),
+    horizontal_speed_mps=validated_data.get("horizontal_speed_mps"),
+    lat=validated_data["lat"],
+    lng=validated_data["lng"],
     )
 
     drone.is_dangerous = len(reasons) > 0

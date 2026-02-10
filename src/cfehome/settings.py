@@ -220,3 +220,14 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "drones/telemetry")
 MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
+
+
+
+NO_FLY_ZONES = [
+    {
+        "name": "Airport Zone",
+        "lat": 31.99,
+        "lng": 35.98,
+        "radius_km": 2.0,
+    },
+]
