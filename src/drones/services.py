@@ -1,6 +1,6 @@
 from django.utils import timezone
-
 from .models import Drone, DroneTelemetry
+from .danger_strategies import default_classifier
 
 #what this does: takes validated telemetry data (already validated by TelemetryInSerializer), writes DroneTelemetry, 
 #updates Drone latest state + danger classification, and returns (drone, telemetry).
@@ -42,15 +42,11 @@ def ingest_telemetry(validated_data: dict) -> tuple[Drone, DroneTelemetry]:
     #If the horizontal speed exceeds 10 m/s, we add another reason indicating that the speed is too high. 
     #Finally, we set the is_dangerous flag on the Drone record to True if there are any reasons in the list, 
     #and we save the updated Drone record to the database with the new latest state and danger classification information.
-    reasons = []
-    height_m = validated_data.get("height_m")
-    speed_mps = validated_data.get("horizontal_speed_mps")
-
-    if height_m is not None and height_m > 500:
-        reasons.append("Altitude greater than 500 meters")
-
-    if speed_mps is not None and speed_mps > 10:
-        reasons.append("Horizontal speed greater than 10 m/s")
+    classifier = default_classifier()
+    reasons = classifier.classify(
+        height_m=validated_data.get("height_m"),
+        horizontal_speed_mps=validated_data.get("horizontal_speed_mps"),
+    )
 
     drone.is_dangerous = len(reasons) > 0
     drone.danger_reasons = reasons
