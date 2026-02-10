@@ -120,6 +120,11 @@ python manage.py runserver
 | GET | `/api/drones/{serial}/path/geojson/` | GeoJSON flight path |
 
 ---
+## Root URL Redirect
+
+By default, the application redirects the root URL (/) to the Django Admin interface.
+
+---
 
 ## MQTT Ingestion
 
