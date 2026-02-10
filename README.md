@@ -171,6 +171,75 @@ python manage.py test
 
 ---
 
+## Design Patterns Used
+
+This project intentionally applies multiple design patterns to ensure the system is modular, extensible, testable, and transport-agnostic.
+
+---
+
+### 1. Strategy Pattern (Primary)
+
+The **Strategy Pattern** is used for dangerous-drone classification.
+
+Each danger rule is implemented as an independent strategy (e.g. altitude rule, speed rule).  
+A classifier context applies all configured strategies to incoming telemetry.
+
+This allows new danger rules to be added without modifying telemetry ingestion logic.
+
+**Implementation:**
+- `drones/danger_strategies.py`
+- Used by `ingest_telemetry()` in `drones/services.py`
+
+**Why Strategy fits here:**
+- Danger criteria are expected to evolve
+- Rules must be swappable and extensible
+- Avoids hard-coded conditional logic
+
+---
+
+### 2. Service Layer Pattern
+
+A **Service Layer** encapsulates all core business logic related to telemetry ingestion.
+
+Both REST and MQTT ingestion paths delegate to the same service function.
+
+**Implementation:**
+- `drones/services.py`
+- `ingest_telemetry(validated_data)`
+
+**Responsibilities:**
+- Create telemetry records
+- Update drone latest state
+- Apply danger classification strategies
+
+This prevents duplication and ensures consistent behavior across transports.
+
+---
+
+### 3. Thin Controller Pattern (Supporting)
+
+API views act as thin controllers:
+
+- Validate input
+- Call service layer
+- Return responses
+
+They do not contain business rules.
+
+**Benefits:**
+- Improved readability
+- Easier testing
+- Clear separation of concerns
+
+---
+
+### 4. Command Pattern (Supporting)
+
+The MQTT subscriber is implemented as a Django **management command**, following the Command Pattern.
+
+**Example:**
+```bash
+python manage.py run_mqtt
 
 ---
 
