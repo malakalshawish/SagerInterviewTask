@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
+from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv() 
@@ -90,6 +91,7 @@ INSTALLED_APPS = [
     'commando',
     'drones',
     "rest_framework",
+    "rest_framework_simplejwt",
     "drf_spectacular",
 ]
 
@@ -205,6 +207,12 @@ STORAGES = {
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
 }
 
 #for API documentation generation with drf-spectacular
@@ -212,6 +220,26 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Sager Interview Task API",
     "DESCRIPTION": "Drone telemetry backend",
     "VERSION": "1.0.0",
+    # Makes Swagger keep the token after refresh (nice UX)
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": True,
+    },
+    # Explicit bearer auth in schema (so Swagger shows the lock properly)
+    "SECURITY": [{"bearerAuth": []}],
+    "COMPONENTS": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    },
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
 
 # MQTT settings

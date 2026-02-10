@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
 
@@ -12,15 +13,26 @@ from drones.models import Drone, DroneTelemetry
 from drones.utils import haversine_km
 from django.test import override_settings
 
+from rest_framework_simplejwt.tokens import RefreshToken
 
-class DroneAPITests(APITestCase):
+class AuthenticatedAPITestCase(APITestCase):
+    def setUp(self):
+        super().setUp()
+        User = get_user_model()
+        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        access = str(RefreshToken.for_user(self.user).access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+class DroneAPITests(AuthenticatedAPITestCase):
     #setUp is a special method that gets called before each test method runs, allowing us to set up any necessary data or state for the tests
     #in this case, we just define a serial number that we can use in our tests to create and query drones
     #this means that before each test method is executed, self.serial will be set to "DRONE001"
     #this allows us to avoid repeating the same setup code in each test method and ensures that each test starts with a consistent state
     #if we needed to create a drone instance in the database for our tests, we could also do that in the setUp method so that it is available for all test methods
     def setUp(self):
-        self.serial = "DRONE001"
+        super().setUp()
+        self.serial = "EDGE001"
+        self.telemetry_url = reverse("telemetry-ingest")
 
     #test method names should start with "test_" so that the test runner recognizes them as tests to execute
     #this test checks that when we post telemetry data to the telemetry ingest endpoint, it creates
@@ -98,8 +110,9 @@ class DroneAPITests(APITestCase):
         
         
 
-class DroneAPIEdgeCaseTests(APITestCase):
+class DroneAPIEdgeCaseTests(AuthenticatedAPITestCase):
     def setUp(self):
+        super().setUp()
         self.serial = "EDGE001"
         self.telemetry_url = reverse("telemetry-ingest")
 
@@ -463,7 +476,7 @@ class GeofencingUnitTests(APITestCase):
         self.assertFalse(any("geo" in r.lower() or "zone" in r.lower() for r in reasons))
 
 
-class GeofencingFeatureTests(APITestCase):
+class GeofencingFeatureTests(AuthenticatedAPITestCase):
     """
     Feature/integration tests: go through the real API endpoint.
     These assume your ingest_telemetry() passes lat/lng into the classifier
@@ -512,3 +525,69 @@ class GeofencingFeatureTests(APITestCase):
         drone = Drone.objects.get(serial="DRONE_GEOFENCE_2")
         self.assertFalse(drone.is_dangerous)
         self.assertTrue(drone.danger_reasons in ([], None))
+        
+        
+
+class JWTAuthFeatureTests(APITestCase):
+    # JWT tests: prove endpoints are protected, and become accessible with Bearer token
+    def setUp(self):
+        User = get_user_model()
+        self.username = "jwt_user"
+        self.password = "jwt_pass_12345"
+        self.user = User.objects.create_user(username=self.username, password=self.password)
+
+        self.token_url = "/api/token/"
+        self.refresh_url = "/api/token/refresh/"
+
+        # pick a protected endpoint from your swagger
+        self.protected_url = "/api/drones/"
+
+    def _get_tokens(self):
+        res = self.client.post(
+            self.token_url,
+            {"username": self.username, "password": self.password},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        body = res.json()
+        self.assertIn("access", body)
+        self.assertIn("refresh", body)
+        return body["access"], body["refresh"]
+
+    def test_protected_endpoint_without_token_returns_401(self):
+        res = self.client.get(self.protected_url)
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_obtain_token_then_access_protected_endpoint_returns_200(self):
+        access, _ = self._get_tokens()
+
+        # This is exactly what Swagger "Authorize" does behind the scenes
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+        res = self.client.get(self.protected_url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_refresh_token_returns_new_access_token(self):
+        _, refresh = self._get_tokens()
+
+        res = self.client.post(self.refresh_url, {"refresh": refresh}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        body = res.json()
+        self.assertIn("access", body)
+        self.assertTrue(isinstance(body["access"], str))
+        self.assertTrue(len(body["access"]) > 10)
+
+    def test_invalid_token_returns_401(self):
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer not.a.real.token")
+        res = self.client.get(self.protected_url)
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_token_endpoints_should_be_public(self):
+        # Token endpoints must NOT require auth, otherwise you can’t log in at all
+        res = self.client.post(
+            self.token_url,
+            {"username": self.username, "password": self.password},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)

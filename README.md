@@ -324,6 +324,8 @@ This architecture allows the system to scale ingestion sources without increasin
   python manage.py run_mqtt
   ```
 
+---
+
 ## Testing
 
 This project includes both:
@@ -334,3 +336,80 @@ Run:
 ```bash
 python manage.py test -v 2
 ```
+
+---
+---
+---
+## Bonus
+
+## Geofencing (No-Fly Zones)
+
+The system supports geofencing using configurable no-fly zones.
+
+A drone is marked dangerous if it enters any defined geofence —
+even if altitude and speed are within safe limits.
+
+Configuration
+
+Geofences are defined in Django settings:
+        DRONE_GEOFENCE_ZONES = [
+        {
+            "name": "Airport Zone",
+            "lat": 31.9500,
+            "lng": 35.9100,
+            "radius_km": 1.0
+        }
+    ]
+No database migrations are required since zones are configuration-driven.
+
+Classification Logic
+
+Geofencing is implemented as part of the Strategy Pattern:
+	•	HeightRule → altitude violations
+	•	SpeedRule → speed violations
+	•	GeofenceClassifier → spatial violations
+
+These strategies are combined using a Composite Classifier, allowing:
+	•	Independent rules
+	•	Easy extension (e.g. time-based or restricted-airspace rules)
+	•	Clean separation of concerns
+
+Resulting Behavior
+
+If a drone enters a no-fly zone:
+	•	is_dangerous = true
+	•	A descriptive geofence reason is added:
+        "Entered no-fly zone: Airport Zone"
+
+Testing Coverage
+
+Geofencing is fully tested at two levels:
+	•	Unit tests: classifier behavior (inside vs outside zones)
+	•	Feature tests: full API ingestion → danger flag persistence
+
+This guarantees correctness both in isolation and end-to-end.
+
+
+## Authentication (JWT)
+
+This API uses JWT (JSON Web Tokens) for authentication and authorization.
+
+Authentication is enforced globally via Django REST Framework settings:
+	•	All API endpoints are protected by default
+	•	Clients must provide a valid Bearer token
+	•	Token-based auth keeps the system stateless and scalable
+
+Authentication Flow
+	1.	Obtain an access & refresh token:
+        POST /api/token/
+    Payload:
+        {
+            "username": "user",
+            "password": "password"
+        }
+
+    2.	Use the access token in subsequent requests:
+        Authorization: Bearer <access_token>
+
+    3.	Refresh expired access tokens:
+        POST /api/token/refresh/
