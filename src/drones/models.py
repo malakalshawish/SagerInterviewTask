@@ -53,3 +53,12 @@ class DroneTelemetry(models.Model):
         ]
         ordering = ["timestamp"]
     
+
+class GeofenceZone(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    lat = models.FloatField()
+    lng = models.FloatField()
+    radius_km = models.FloatField(default=1.0)
+
+    def __str__(self):
+        return self.name

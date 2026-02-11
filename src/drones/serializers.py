@@ -1,7 +1,7 @@
 #translates between Python objects and JSON.
 #defines how a Drone object is turned into JSON when your API sends a response.
 from rest_framework import serializers
-from .models import Drone
+from .models import Drone, GeofenceZone
 
 #output serialization: how to turn a Drone object into JSON when sending a response
 #ModelSerializer is a DRF class that automatically generates a serializer based on a Django model
@@ -28,3 +28,8 @@ class DroneSerializer(serializers.ModelSerializer):
             "danger_reasons",
         ]
 
+
+class GeofenceZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GeofenceZone
+        fields = ["id", "name", "lat", "lng", "radius_km"]

@@ -413,3 +413,67 @@ Authentication Flow
 
     3.	Refresh expired access tokens:
         POST /api/token/refresh/
+
+
+## RBAC Rules
+
+The system distinguishes between regular authenticated users and staff (admin) users.
+
+Regular authenticated users (is_staff = False)
+
+Allowed to:
+	•	View drones and telemetry
+	•	Ingest telemetry
+	•	View nearby / online / dangerous drones
+	•	View geofence zones
+
+Not allowed to:
+	•	Create, update, or delete geofence zones
+	•	Mark drones as safe
+
+Staff users (is_staff = True)
+
+Allowed to:
+	•	All regular user actions
+	•	Create / update / delete geofence zones
+	•	Mark drones as safe
+
+⸻
+
+🧭 RBAC-Protected Endpoints
+
+Geofence Management
+    Endpoint                Method              Access
+    /api/geofences/         GET                 Authenticated
+    /api/geofences/         POST                Staff only
+    /api/geofences/{id}/    PUT                 Staff only
+    /api/geofences/{id}/    DELETE              Staff only
+
+Drone Safety Override
+     Endpoint                       Method              Access
+/api/drones/{serial}/mark-safe/     POST                Staff only
+
+
+Design Note
+
+RBAC is enforced at the view layer using:
+	•	IsAuthenticated (baseline access)
+	•	IsAdminUser and explicit is_staff checks for privileged actions
+
+This keeps authorization rules:
+	•	Explicit
+	•	Auditable
+	•	Easy to extend later (e.g., roles, scopes, or per-object permissions)
+
+
+
+
+
+
+
+
+
+
+
+            
+

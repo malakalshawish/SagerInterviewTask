@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Protocol, Optional
 from django.conf import settings
 from drones.utils import haversine_km
+from drones.models import GeofenceZone
 
 
 class DangerRule(Protocol):
@@ -78,22 +79,25 @@ def default_classifier():
 @dataclass
 class GeofenceClassifier:
     def classify(self, *, lat: float | None, lng: float | None) -> list[str]:
-        #this method checks if the given latitude and longitude coordinates of a drone are within any predefined no-fly zones,
         reasons: list[str] = []
-        #if either the latitude or longitude is None, we cannot perform the geofence classification, so we return an empty list of reasons, 
-        #indicating that we cannot determine if the drone is in a no-fly zone or not based on the provided coordinates
+
         if lat is None or lng is None:
             return reasons
-        #we retrieve the list of no-fly zones from the Django settings, which is expected to be a list of dictionaries containing the latitude, longitude, radius in kilometers, and name of each no-fly zone.
-        zones = getattr(
+
+        # 1) Try database-defined zones (RBAC-managed)
+        zones_db = list(
+            GeofenceZone.objects.values("name", "lat", "lng", "radius_km")
+        )
+
+        # 2) Fallback to settings if DB is empty
+        zones = zones_db or getattr(
             settings,
             "DRONE_GEOFENCE_ZONES",
             getattr(settings, "NO_FLY_ZONES", []),
         )
+
         for zone in zones:
             distance = haversine_km(lat, lng, zone["lat"], zone["lng"])
-            #we calculate the distance between the drone's coordinates and the center of each no-fly zone using the haversine_km function, 
-            #which computes the great-circle distance between two points on the Earth's surface based on their latitude and longitude.
             if distance <= zone["radius_km"]:
                 reasons.append(f'Entered no-fly zone: {zone["name"]}')
 

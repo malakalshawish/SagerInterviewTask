@@ -1,12 +1,15 @@
 from django.urls import path
 from .views import (
     DroneListView,
+    MarkDroneSafeView,
     OnlineDroneListView,
     NearbyDroneListView,
     TelemetryIngestView,
     DroneTelemetryListView,
     DronePathGeoJSONView,
     DangerousDroneListView,
+    GeofenceZoneListCreateView,
+    GeofenceZoneDetailView,
 )
 
 urlpatterns = [
@@ -18,4 +21,7 @@ urlpatterns = [
     path("drones/<str:serial>/telemetry/", DroneTelemetryListView.as_view(), name="drone-telemetry"),
     path("drones/<str:serial>/path/", DronePathGeoJSONView.as_view(), name="drone-path-geojson"),
     path("drones/dangerous/", DangerousDroneListView.as_view(), name="dangerous-drone-list"),
+    path("drones/<str:serial>/mark-safe/", MarkDroneSafeView.as_view(), name="drone-mark-safe"),
+    path("geofences/", GeofenceZoneListCreateView.as_view(), name="geofence-zone-list-create"),
+    path("geofences/<int:pk>/", GeofenceZoneDetailView.as_view(), name="geofence-zone-detail"),
 ]

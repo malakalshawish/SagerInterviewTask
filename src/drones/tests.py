@@ -9,11 +9,12 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 
 from drones.danger_strategies import default_classifier
-from drones.models import Drone, DroneTelemetry
+from drones.models import Drone, DroneTelemetry, GeofenceZone
 from drones.utils import haversine_km
 from django.test import override_settings
 
 from rest_framework_simplejwt.tokens import RefreshToken
+
 
 class AuthenticatedAPITestCase(APITestCase):
     def setUp(self):
@@ -591,3 +592,57 @@ class JWTAuthFeatureTests(APITestCase):
             format="json",
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
+        
+
+
+
+class RBACFeatureTests(APITestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.password = "Pass_12345!"
+
+        self.normal_user = User.objects.create_user(
+            username="normal_user",
+            password=self.password,
+            is_staff=False,
+        )
+
+        self.staff_user = User.objects.create_user(
+            username="staff_user",
+            password=self.password,
+            is_staff=True,
+        )
+
+        #reverse so the test always matches urls.py
+        self.zone_create_url = reverse("geofence-zone-list-create")
+
+    def _login_and_set_bearer(self, username: str, password: str):
+        res = self.client.post(
+            "/api/token/",
+            {"username": username, "password": password},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.json())
+        access = res.json()["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+    def test_modify_settings_unauthenticated_returns_401(self):
+        payload = {"name": "ZoneA", "lat": 31.95, "lng": 35.91, "radius_km": 1.0}
+        res = self.client.post(self.zone_create_url, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED, getattr(res, "data", None))
+
+    def test_modify_settings_authenticated_non_staff_returns_403(self):
+        self._login_and_set_bearer("normal_user", self.password)
+
+        payload = {"name": "ZoneB", "lat": 31.95, "lng": 35.91, "radius_km": 1.0}
+        res = self.client.post(self.zone_create_url, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN, getattr(res, "data", None))
+
+    def test_modify_settings_staff_can_create_zone(self):
+        self._login_and_set_bearer("staff_user", self.password)
+
+        payload = {"name": "ZoneC", "lat": 31.95, "lng": 35.91, "radius_km": 1.0}
+        res = self.client.post(self.zone_create_url, payload, format="json")
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, getattr(res, "data", None))
+        self.assertTrue(GeofenceZone.objects.filter(name="ZoneC").exists())
