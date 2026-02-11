@@ -1,10 +1,7 @@
 #!/bin/bash
 set -e
 
-# Ensure we use the venv-installed packages (psycopg, etc.)
 export PATH="/opt/venv/bin:$PATH"
-
-cd /code
 
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput

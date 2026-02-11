@@ -3,15 +3,16 @@ from pathlib import Path
 
 import dj_database_url
 from dotenv import load_dotenv
+from decouple import config
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Core env-driven settings
-SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-change-me")  # MUST be overridden in prod
-DEBUG = os.environ.get("DEBUG", "0").lower() in ("1", "true", "yes")
+SECRET_KEY = config("DJANGO_SECRET_KEY", default="django-insecure-change-me")  # MUST be overridden in prod
+DEBUG = config("DJANGO_DEBUG", default=False, cast=bool)
 
-PROJECT_NAME = os.environ.get("PROJECT_NAME", "Sager Interview Task")
+PROJECT_NAME = config("PROJECT_NAME", default="Sager Interview Task")
 
 # ALLOWED_HOSTS: comma-separated in env
 # Example: "127.0.0.1,localhost,myapp.up.railway.app"
