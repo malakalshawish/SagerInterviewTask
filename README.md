@@ -438,20 +438,32 @@ Allowed to:
 	•	Create / update / delete geofence zones
 	•	Mark drones as safe
 
-⸻
-
-🧭 RBAC-Protected Endpoints
+RBAC-Protected Endpoints
 
 Geofence Management
-    Endpoint                Method              Access
-    /api/geofences/         GET                 Authenticated
-    /api/geofences/         POST                Staff only
-    /api/geofences/{id}/    PUT                 Staff only
-    /api/geofences/{id}/    DELETE              Staff only
+   Endpoint
+Method
+Access
+/api/geofences/
+GET
+Authenticated
+/api/geofences/
+POST
+Staff only
+/api/geofences/{id}/
+PUT
+Staff only
+/api/geofences/{id}/
+DELETE
+Staff only
+
 
 Drone Safety Override
      Endpoint                       Method              Access
-/api/drones/{serial}/mark-safe/     POST                Staff only
+/api/drones/{serial}/mark-safe/
+POST
+Staff only
+
 
 
 Design Note
