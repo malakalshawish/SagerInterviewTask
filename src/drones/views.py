@@ -252,6 +252,12 @@ class DangerousDroneListView(APIView):
 class MarkDroneSafeView(APIView):
     permission_classes = [IsAdminUser]
 
+    @extend_schema(
+        request=None,
+        responses={200: OpenApiResponse(response=dict, description="Drone marked safe")},
+        tags=["drones"],
+    )
+
     def post(self, request, serial: str):
         try:
             drone = Drone.objects.get(serial=serial)
@@ -269,15 +275,34 @@ class MarkDroneSafeView(APIView):
         
 
 
+# class GeofenceZoneListCreateView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         zones = GeofenceZone.objects.all().order_by("id")
+#         return Response(GeofenceZoneSerializer(zones, many=True).data)
+
+#     def post(self, request):
+#         # admin-only create
+#         if not request.user.is_staff:
+#             return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+#         ser = GeofenceZoneSerializer(data=request.data)
+#         ser.is_valid(raise_exception=True)
+#         zone = ser.save()
+#         return Response(GeofenceZoneSerializer(zone).data, status=status.HTTP_201_CREATED)
+
+
 class GeofenceZoneListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses=GeofenceZoneSerializer(many=True), tags=["geofences"])
     def get(self, request):
         zones = GeofenceZone.objects.all().order_by("id")
         return Response(GeofenceZoneSerializer(zones, many=True).data)
 
+    @extend_schema(request=GeofenceZoneSerializer, responses=GeofenceZoneSerializer, tags=["geofences"])
     def post(self, request):
-        # admin-only create
         if not request.user.is_staff:
             return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
@@ -285,36 +310,32 @@ class GeofenceZoneListCreateView(APIView):
         ser.is_valid(raise_exception=True)
         zone = ser.save()
         return Response(GeofenceZoneSerializer(zone).data, status=status.HTTP_201_CREATED)
-
-
+    
+    
 class GeofenceZoneDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_object(self, pk: int):
-        return GeofenceZone.objects.get(pk=pk)
+    @extend_schema(responses=GeofenceZoneSerializer, tags=["geofences"])
+    def get(self, request, pk: int):
+        zone = get_object_or_404(GeofenceZone, pk=pk)
+        return Response(GeofenceZoneSerializer(zone).data)
 
+    @extend_schema(request=GeofenceZoneSerializer, responses=GeofenceZoneSerializer, tags=["geofences"])
     def put(self, request, pk: int):
         if not request.user.is_staff:
             return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
-        try:
-            zone = self.get_object(pk)
-        except GeofenceZone.DoesNotExist:
-            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-
+        zone = get_object_or_404(GeofenceZone, pk=pk)
         ser = GeofenceZoneSerializer(zone, data=request.data)
         ser.is_valid(raise_exception=True)
         zone = ser.save()
         return Response(GeofenceZoneSerializer(zone).data)
 
+    @extend_schema(responses=None, tags=["geofences"])
     def delete(self, request, pk: int):
         if not request.user.is_staff:
             return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
-        try:
-            zone = self.get_object(pk)
-        except GeofenceZone.DoesNotExist:
-            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-
+        zone = get_object_or_404(GeofenceZone, pk=pk)
         zone.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
