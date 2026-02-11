@@ -181,7 +181,7 @@ This project intentionally applies multiple design patterns to ensure the system
 
 The **Strategy Pattern** is used for dangerous-drone classification.
 
-Each danger rule is implemented as an independent strategy (e.g. altitude rule, speed rule).  
+Each danger rule is implemented as an independent strategy for example altitude rule, speed rule.  
 A classifier context applies all configured strategies to incoming telemetry.
 
 This allows new danger rules to be added without modifying telemetry ingestion logic.
@@ -346,7 +346,7 @@ python manage.py test -v 2
 
 The system supports geofencing using configurable no-fly zones.
 
-A drone is marked dangerous if it enters any defined geofence —
+A drone is marked dangerous if it enters any defined geofence,
 even if altitude and speed are within safe limits.
 
 Configuration
@@ -371,7 +371,7 @@ Geofencing is implemented as part of the Strategy Pattern:
 
 These strategies are combined using a Composite Classifier, allowing:
 	•	Independent rules
-	•	Easy extension (e.g. time-based or restricted-airspace rules)
+	•	Easy extension (time-based or restricted-airspace rules)
 	•	Clean separation of concerns
 
 Resulting Behavior
@@ -441,28 +441,19 @@ Allowed to:
 RBAC-Protected Endpoints
 
 Geofence Management
-   Endpoint
-Method
-Access
-/api/geofences/
-GET
-Authenticated
-/api/geofences/
-POST
-Staff only
-/api/geofences/{id}/
-PUT
-Staff only
-/api/geofences/{id}/
-DELETE
-Staff only
 
+| Endpoint               | Method | Access        |
+|------------------------|--------|---------------|
+| /api/geofences/        | GET    | Authenticated |
+| /api/geofences/        | POST   | Staff only    |
+| /api/geofences/{id}/   | PUT    | Staff only    |
+| /api/geofences/{id}/   | DELETE | Staff only    |
 
 Drone Safety Override
-     Endpoint                       Method              Access
-/api/drones/{serial}/mark-safe/
-POST
-Staff only
+
+| Endpoint                              | Method | Access     |
+|---------------------------------------|--------|------------|
+| /api/drones/{serial}/mark-safe/      | POST   | Staff only |
 
 
 
@@ -475,7 +466,7 @@ RBAC is enforced at the view layer using:
 This keeps authorization rules:
 	•	Explicit
 	•	Auditable
-	•	Easy to extend later (e.g., roles, scopes, or per-object permissions)
+	•	Easy to extend later (roles, scopes, or per-object permissions)
 
 
 
