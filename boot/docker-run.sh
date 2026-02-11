@@ -6,10 +6,14 @@ export PATH="/opt/venv/bin:$PATH"
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 
+# If this container is the MQTT worker, run the subscriber instead of gunicorn
+if [ "${RUN_MQTT}" = "1" ]; then
+exec python manage.py run_mqtt
+fi
+
 exec gunicorn cfehome.wsgi:application \
 --bind 0.0.0.0:${PORT:-8000} \
 --workers 3
-
 
 
 # set -e

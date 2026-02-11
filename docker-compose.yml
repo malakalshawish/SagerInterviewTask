@@ -13,13 +13,24 @@ services:
     ports:
       - "5432:5432"
 
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+
   web:
     build: .
     env_file: .env
     environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
       DB_SSL_REQUIRE: "0"
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_TOPIC: thing/product/+/osd
     depends_on:
       db:
         condition: service_healthy
+      mosquitto:
+        condition: service_started
     ports:
       - "8001:8000"

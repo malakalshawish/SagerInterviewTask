@@ -9,18 +9,25 @@ from rest_framework import serializers
 
 #Is this incoming telemetry payload valid, safe, and usable?
 class TelemetryInSerializer(serializers.Serializer):
-    # Validates raw JSON sent by a client / MQTT
-    # Ensures required fields exist
-    # Ensures types are correct
-    # Converts strings → Python types
-    # Does NOT talk to the database
-    
-    #required fields for incoming telemetry data
     serial = serializers.CharField(max_length=64)
     lat = serializers.FloatField()
     lng = serializers.FloatField()
-    
-    #optional fields for incoming telemetry data
+
     timestamp = serializers.DateTimeField(required=False)
+
+    # Accept both naming styles
     height_m = serializers.FloatField(required=False)
     horizontal_speed_mps = serializers.FloatField(required=False)
+
+    height = serializers.FloatField(required=False, write_only=True)
+    speed = serializers.FloatField(required=False, write_only=True)
+
+    def validate(self, attrs):
+        # Map legacy keys -> canonical keys if canonical not provided
+        if "height_m" not in attrs and "height" in attrs:
+            attrs["height_m"] = attrs["height"]
+
+        if "horizontal_speed_mps" not in attrs and "speed" in attrs:
+            attrs["horizontal_speed_mps"] = attrs["speed"]
+
+        return attrs
