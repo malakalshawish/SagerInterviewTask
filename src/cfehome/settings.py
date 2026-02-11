@@ -7,6 +7,9 @@ from decouple import config
 
 import sys
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR.parent / ".env")
+
 RUNNING_TESTS = "test" in sys.argv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
