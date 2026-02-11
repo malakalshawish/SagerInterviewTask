@@ -5,6 +5,9 @@ import dj_database_url
 from dotenv import load_dotenv
 from decouple import config
 
+import sys
+
+RUNNING_TESTS = "test" in sys.argv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -137,18 +140,20 @@ SPECTACULAR_SETTINGS = {
 
 
 # DEBUG should come from env in real deployments
-# e.g. DEBUG=True locally, DEBUG=False on Railway
-# DEBUG = config("DEBUG", default=False, cast=bool)   # if using decouple
-# or:
+# Locally: DEBUG=True
+# Railway: DEBUG=False
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("1", "true", "yes")
+
+# Detect test runs (GitHub Actions / local `python manage.py test`)
+RUNNING_TESTS = "test" in sys.argv
 
 # Railway (and most platforms) run Django behind a reverse proxy that terminates HTTPS.
 # This tells Django "treat requests as HTTPS when the proxy says so".
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 
-# Only enforce strict security in production
-if not DEBUG:
+# Only enforce strict security in real production (not during tests)
+if (not DEBUG) and (not RUNNING_TESTS):
     # Redirect HTTP -> HTTPS (safe in prod because Railway provides HTTPS at the edge)
     SECURE_SSL_REDIRECT = True
 
@@ -168,10 +173,13 @@ if not DEBUG:
     if csrf_origins:
         CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_origins.split(",") if o.strip()]
 else:
-    # Local dev / Docker: DO NOT redirect to https (you’re serving plain http)
+    # Local dev / Docker / Tests: DO NOT redirect to https (you’re serving plain http)
     SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
 
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+#DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 
