@@ -180,22 +180,19 @@ Create a `.env` file in the **project root**:
 
 ### `.env` example (local / docker)
 
-```env
 # Django
 DJANGO_SECRET_KEY=dev-secret-key-change-me
 DJANGO_DEBUG=1
+ALLOWED_HOSTS=127.0.0.1,localhost
 
-# Database
+# Database (Docker local Postgres)
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
 DB_SSL_REQUIRE=0
 
-# Optional security toggles (dev)
-SECURE_HSTS_SECONDS=0
-
-# MQTT
+# MQTT (local machine running mosquitto OR Docker broker)
 MQTT_HOST=localhost
 MQTT_PORT=1883
-MQTT_TOPIC=drones/telemetry
+MQTT_TOPIC=thing/product/+/osd
 MQTT_USERNAME=
 MQTT_PASSWORD=
 
@@ -252,7 +249,7 @@ Run Locally (No Docker)
 
 7) Run the server
 ```bash
-    python manage.py runserver 0.0.0.0:8000
+    python manage.py runserver
 ```
 •	API base: http://127.0.0.1:8000/api/
 •	Swagger UI: http://127.0.0.1:8000/api/docs/
@@ -310,43 +307,28 @@ To subscribe to all drones, use:
 
 ### Run MQTT ingestion with Docker (recommended)
 
-This repo includes a Mosquitto broker in `docker-compose.yml`, so you don’t need to install a broker locally.
+This repo includes a Mosquitto broker in `docker-compose.yml`, so you don’t need to install Mosquitto locally.
 
 1) Start the stack:
 
 ```bash
 docker compose up -d --build
 ```
-2)	Apply migrations:
+2)	Run migrations:
 ```bash
     docker compose exec web /opt/venv/bin/python manage.py migrate
 ```
-3)	Run the MQTT subscriber (keep this terminal open):
+3)	Start the MQTT subscriber (in a separate terminal):
 ```bash
     docker compose exec web /opt/venv/bin/python manage.py run_mqtt
 ```
-You should see something like:
-	•	Connected to MQTT broker ...
-	•	Subscribed to topic: thing/product/+/osd
-
-	4.	Publish a test message (new terminal)
-
-If you have mosquitto_pub installed:
+4)	Publish a test message (from your host machine):
 ```bash
-    mosquitto_pub -h localhost -p 1883 -t "thing/product/DR-001/osd" -m '{"lat":37.7749,"lng":-122.4194,"speed":12.3,"timestamp":"2026-01-01T12:00:00Z"}'
+    mosquitto_pub -h localhost -p 1883 -t "thing/product/DR-001/osd" -m '{"serial":"DR-001","lat":37.7749,"lng":-122.4194,"speed":12.3,"timestamp":"2026-01-01T12:00:00Z"}'
 ```
-The subscriber extracts serial from the topic if it’s not present in the payload.
+You should see a log line similar to:
+	Ingested telemetry: serial=DR-001 telemetry_id=...
 
-5)	Verify ingestion
-
-Verify via Django shell:
-```bash
-    docker compose exec web /opt/venv/bin/python manage.py shell -c "
-from drones.models import DroneTelemetry
-print('Telemetry count:', DroneTelemetry.objects.count())
-print(list(DroneTelemetry.objects.order_by('-id').values('id','drone_id','lat','lng','height_m','horizontal_speed_mps','timestamp')[:5]))
-"
-```
 ### Run MQTT ingestion locally (no Docker web)
 
 You can still use Docker for DB + broker, while running Django locally:
@@ -500,7 +482,7 @@ Example settings structure:
 
 ⸻
 
-Tests
+### Tests
 
 Local:
 ```bash
@@ -511,71 +493,84 @@ Docker:
 ```bash
     docker compose exec web /opt/venv/bin/python manage.py test -v 2
 ```
+## Tests Coverage
+
+The test suite is designed to validate both the REST API and MQTT ingestion paths. The existing API tests cover authentication (JWT), RBAC/permissions, drone CRUD and telemetry ingestion via HTTP, and key edge cases such as missing/invalid payload fields, boundary values, for example speed/altitude thresholds, geofencing behavior, nearby-drone queries, path/GeoJSON responses, and helper utilities (haversine). In addition, MQTT tests mock the Paho client to verify the subscriber wiring (connect/subscribe), environment-driven defaults (`MQTT_HOST`, `MQTT_PORT`, `MQTT_TOPIC`, credentials), successful telemetry ingestion from MQTT messages, topic-based serial inference (`thing/product/{serial}/osd` when `serial` is missing in the payload), and failure handling (bad JSON and missing required fields do not insert rows).
 
 ⸻
 
-Deployment to Railway
+### Deployment to Railway
 
-This project runs best on Railway as **two services**:
+This project runs on Railway as **two services**:
+- `django-django`: Web/API (Gunicorn)
+- `mqtt_worker`: MQTT subscriber (`python manage.py run_mqtt`)
 
-1) **Web/API service** (Gunicorn) — serves REST endpoints
-2) **MQTT Worker service** (`python manage.py run_mqtt`) — ingests MQTT telemetry into Postgres
+Both services are connected to the same Railway Postgres database.
 
-0) Prerequisites
-	•	Railway account
-	•	GitHub repo with this project pushed
+## 0) Prerequisites
+- Railway account
+- GitHub repo with this project pushed
 
-1) Push code
+## 1) Push code
 ```bash
-    git add .
-    git commit -m "Deploy to Railway"
-    git push
+git add .
+git commit -m "Deploy to Railway"
+git push
 ```
 2) Create project on Railway
 	•	Create new Railway project
 	•	Connect GitHub repository
 	•	Add PostgreSQL service
+	•	Deploy the repo as the Django web service
+	•	Create a second service from the same repo named mqtt_worker
 
 3) Set environment variables (Railway)
 
-On the Django service:
+On the Django service (django-django):
 
 Required:
 	•	DJANGO_SECRET_KEY=<strong production key>
 	•	DJANGO_DEBUG=0
 	•	DB_SSL_REQUIRE=1
 
-Railway provides:
-	•	DATABASE_URL (use it)
+Railway provides (via Postgres connection):
+	•	DATABASE_URL (or your project’s DATABASE_URL-compatible variable)
 
-if you run MQTT worker on Railway too:
+On the MQTT worker service (mqtt_worker):
+
+Required:
+	•	RUN_MQTT=1 (runs the MQTT subscriber instead of Gunicorn)
+
+MQTT connection variables:
 	•	MQTT_HOST
 	•	MQTT_PORT
-	•	MQTT_TOPIC
-	•	MQTT_USERNAME
-	•	MQTT_PASSWORD
+	•	MQTT_TOPIC=thing/product/+/osd
+	•	(optional) MQTT_USERNAME
+	•	(optional) MQTT_PASSWORD
 
-4) Start command / process
+The MQTT broker must be reachable from Railway.
+For demo/testing we used test.mosquitto.org:1883.
 
-Typical web start command:
-```bash
-    gunicorn cfehome.wsgi:application --bind 0.0.0.0:$PORT
-```
-If you use a boot script, ensure it runs:
-```bash
-	•	python manage.py migrate
-	•	python manage.py collectstatic --noinput
-	•	gunicorn ...
-```
-After deployment, publish a test message to your broker:
+4) Verify
 
-```bash
-mosquitto_pub -h <MQTT_HOST> -p 1883 -t "thing/product/DR-RAILWAY-001/osd" -m '{"serial":"DR-RAILWAY-001","lat":37.7749,"lng":-122.4194,"speed":12.3,"timestamp":"2026-01-01T12:00:00Z"}'
-```
-5) Verify
+Web/API:
 	•	Open the Railway URL
 	•	Visit /api/docs/
 	•	Test /api/token/ and /api/drones/
+
+MQTT Worker:
+	•	Check mqtt_worker logs for:
+	•	Starting MQTT loop...
+	•	Connected to MQTT broker ...
+	•	Subscribed to topic: thing/product/+/osd
+
+Test ingestion:
+```bash
+    mosquitto_pub -h test.mosquitto.org -p 1883 -t "thing/product/DR-RAILWAY-001/osd" -m '{"serial":"DR-RAILWAY-001","lat":37.7749,"lng":-122.4194,"speed":12.3,"timestamp":"2026-01-01T12:00:00Z"}'
+```
+Confirm:
+	•	mqtt_worker logs show Ingested telemetry...
+	•	The row exists in the database (visible via Django Admin or telemetry endpoints if exposed).
 
 ⸻
 
@@ -670,3 +665,9 @@ Check:
         ```bash
             gunicorn cfehome.wsgi:application --bind 0.0.0.0:$PORT
         ```
+
+## Links
+- Web/API: https://sagerinterviewtask.up.railway.app
+- API Docs (Swagger): https://sagerinterviewtask.up.railway.app/api/docs/
+- OpenAPI Schema: https://sagerinterviewtask.up.railway.app/api/schema/
+

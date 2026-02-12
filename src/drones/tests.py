@@ -15,6 +15,9 @@ from django.test import override_settings
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from unittest.mock import MagicMock, patch
+import os
+
 
 class AuthenticatedAPITestCase(APITestCase):
     def setUp(self):
@@ -646,3 +649,186 @@ class RBACFeatureTests(APITestCase):
 
         self.assertEqual(res.status_code, status.HTTP_201_CREATED, getattr(res, "data", None))
         self.assertTrue(GeofenceZone.objects.filter(name="ZoneC").exists())
+        
+        
+
+class MQTTIngestionTests(TestCase):
+    """
+    MQTT ingestion tests (no real broker needed).
+    We mock the Paho MQTT client and trigger the on_message callback directly.
+    """
+
+    def test_run_mqtt_defaults_come_from_env(self):
+        # Use patch.dict so env changes don't leak to other tests
+        with patch.dict(os.environ, {
+            "MQTT_HOST": "example-broker",
+            "MQTT_PORT": "1999",
+            "MQTT_TOPIC": "thing/product/+/osd",
+            "MQTT_USERNAME": "user1",
+            "MQTT_PASSWORD": "pass1",
+        }, clear=False):
+            from drones.management.commands.run_mqtt import Command as RunMQTTCommand
+
+            cmd = RunMQTTCommand()
+            parser = cmd.create_parser("manage.py", "run_mqtt")
+            opts = parser.parse_args([])
+
+            self.assertEqual(opts.host, "example-broker")
+            self.assertEqual(opts.port, 1999)
+            self.assertEqual(opts.topic, "thing/product/+/osd")
+            self.assertEqual(opts.username, "user1")
+            self.assertEqual(opts.password, "pass1")
+
+    @patch("drones.management.commands.run_mqtt.mqtt.Client")
+    def test_run_mqtt_connects_and_sets_callbacks(self, MockClient):
+        mock_client = MagicMock()
+        MockClient.return_value = mock_client
+
+        # Stop the command before it blocks forever
+        mock_client.loop_forever.side_effect = SystemExit
+
+        from drones.management.commands.run_mqtt import Command as RunMQTTCommand
+
+        cmd = RunMQTTCommand()
+
+        with self.assertRaises(SystemExit):
+            cmd.handle(
+                host="mosquitto",
+                port=1883,
+                topic="thing/product/+/osd",
+                username=None,
+                password=None,
+            )
+
+        mock_client.connect.assert_called_once_with("mosquitto", 1883, keepalive=60)
+        self.assertTrue(callable(getattr(mock_client, "on_connect", None)))
+        self.assertTrue(callable(getattr(mock_client, "on_message", None)))
+
+    @patch("drones.management.commands.run_mqtt.mqtt.Client")
+    def test_mqtt_message_ingests_and_creates_rows(self, MockClient):
+        mock_client = MagicMock()
+        MockClient.return_value = mock_client
+        mock_client.loop_forever.side_effect = SystemExit
+
+        from drones.management.commands.run_mqtt import Command as RunMQTTCommand
+        cmd = RunMQTTCommand()
+
+        with self.assertRaises(SystemExit):
+            cmd.handle(
+                host="mosquitto",
+                port=1883,
+                topic="thing/product/+/osd",
+                username=None,
+                password=None,
+            )
+
+        on_message = mock_client.on_message
+
+        class Msg:
+            topic = "thing/product/DR-MQTT-001/osd"
+            payload = b'{"serial":"DR-MQTT-001","lat":31.9539,"lng":35.9106}'
+
+        self.assertFalse(Drone.objects.filter(serial="DR-MQTT-001").exists())
+        self.assertEqual(DroneTelemetry.objects.count(), 0)
+
+        on_message(mock_client, None, Msg())
+
+        self.assertTrue(Drone.objects.filter(serial="DR-MQTT-001").exists())
+        self.assertEqual(DroneTelemetry.objects.count(), 1)
+
+    @patch("drones.management.commands.run_mqtt.mqtt.Client")
+    def test_mqtt_infers_serial_from_topic_when_missing(self, MockClient):
+        """
+        If publisher doesn't include serial in payload, run_mqtt extracts it from:
+        thing/product/{serial}/osd
+        """
+        mock_client = MagicMock()
+        MockClient.return_value = mock_client
+        mock_client.loop_forever.side_effect = SystemExit
+
+        from drones.management.commands.run_mqtt import Command as RunMQTTCommand
+        cmd = RunMQTTCommand()
+
+        with self.assertRaises(SystemExit):
+            cmd.handle(
+                host="mosquitto",
+                port=1883,
+                topic="thing/product/+/osd",
+                username=None,
+                password=None,
+            )
+
+        on_message = mock_client.on_message
+
+        class Msg:
+            topic = "thing/product/DR-TOPIC-ONLY/osd"
+            payload = b'{"lat":31.9539,"lng":35.9106}'
+
+        self.assertFalse(Drone.objects.filter(serial="DR-TOPIC-ONLY").exists())
+        self.assertEqual(DroneTelemetry.objects.count(), 0)
+
+        on_message(mock_client, None, Msg())
+
+        self.assertTrue(Drone.objects.filter(serial="DR-TOPIC-ONLY").exists())
+        self.assertEqual(
+            DroneTelemetry.objects.filter(drone__serial="DR-TOPIC-ONLY").count(), 1
+        )
+
+    @patch("drones.management.commands.run_mqtt.mqtt.Client")
+    def test_mqtt_bad_json_does_not_insert(self, MockClient):
+        mock_client = MagicMock()
+        MockClient.return_value = mock_client
+        mock_client.loop_forever.side_effect = SystemExit
+
+        from drones.management.commands.run_mqtt import Command as RunMQTTCommand
+        cmd = RunMQTTCommand()
+
+        with self.assertRaises(SystemExit):
+            cmd.handle(
+                host="mosquitto",
+                port=1883,
+                topic="thing/product/+/osd",
+                username=None,
+                password=None,
+            )
+
+        on_message = mock_client.on_message
+
+        class Msg:
+            topic = "thing/product/DR-BADJSON/osd"
+            payload = b"not-a-json"
+
+        on_message(mock_client, None, Msg())
+
+        self.assertFalse(Drone.objects.filter(serial="DR-BADJSON").exists())
+        self.assertEqual(DroneTelemetry.objects.count(), 0)
+
+    @patch("drones.management.commands.run_mqtt.mqtt.Client")
+    def test_mqtt_missing_required_fields_does_not_insert(self, MockClient):
+        """Serializer should reject missing lat/lng and nothing should be inserted."""
+        mock_client = MagicMock()
+        MockClient.return_value = mock_client
+        mock_client.loop_forever.side_effect = SystemExit
+
+        from drones.management.commands.run_mqtt import Command as RunMQTTCommand
+        cmd = RunMQTTCommand()
+
+        with self.assertRaises(SystemExit):
+            cmd.handle(
+                host="mosquitto",
+                port=1883,
+                topic="thing/product/+/osd",
+                username=None,
+                password=None,
+            )
+
+        on_message = mock_client.on_message
+
+        class Msg:
+            topic = "thing/product/DR-MISSING/osd"
+            payload = b'{"serial":"DR-MISSING"}'  # missing lat/lng
+
+        on_message(mock_client, None, Msg())
+
+        self.assertFalse(Drone.objects.filter(serial="DR-MISSING").exists())
+        self.assertEqual(DroneTelemetry.objects.count(), 0)
