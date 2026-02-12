@@ -100,6 +100,14 @@ else:
         }
     }
 
+RAILWAY_DATABASE_URL = os.getenv("RAILWAY_DATABASE_URL", "").strip()
+if RAILWAY_DATABASE_URL:
+    DATABASES["railway"] = dj_database_url.parse(
+        RAILWAY_DATABASE_URL,
+        conn_max_age=600,
+        ssl_require=True,  # Railway public proxy expects SSL
+    )
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

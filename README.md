@@ -27,6 +27,13 @@ Built with **Django + Django REST Framework**, **PostgreSQL**, **Docker**, and d
 
 ---
 
+## Links
+- Web/API: https://sagerinterviewtask.up.railway.app
+- API Docs (Swagger): https://sagerinterviewtask.up.railway.app/api/docs/
+- OpenAPI Schema: https://sagerinterviewtask.up.railway.app/api/schema/
+
+---
+
 ## Features
 
 ### Telemetry ingestion
@@ -201,7 +208,6 @@ SSL note
 	•	Railway Postgres typically requires SSL → set DB_SSL_REQUIRE=1 and use Railway-provided DATABASE_URL
 
 ---
-
 Run Locally (No Docker)
 
 0) Prerequisites
@@ -289,6 +295,105 @@ Inside container:
     /opt/venv/bin/python manage.py createsuperuser
     exit
 ```
+---
+
+## Seed Drones (Local + Railway)
+
+This project includes a Django management command to generate random `Drone` rows and **seed them into Railway Postgres automatically**, while also printing totals for both **local** and **Railway** databases.
+
+### Prereqs
+
+- Local Postgres running via Docker (`docker compose up -d db`)
+- `DATABASE_URL` points to local Postgres
+- `RAILWAY_DATABASE_URL` points to Railway’s **public** Postgres URL (TCP proxy)
+
+### Environment variables
+
+Add these to your local `.env`:
+
+# Local DB (default)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable
+
+# Railway DB (secondary alias)
+RAILWAY_DATABASE_URL=postgresql://postgres:<RAILWAY_PASSWORD>@ballast.proxy.rlwy.net:17523/railway?sslmode=require
+
+Note: Use Railway’s public connection string (e.g. *.proxy.rlwy.net:PORT).
+The *.railway.internal hostname only works from inside Railway.
+
+Verify DB targets
+
+From src/:
+```bash
+    python manage.py shell -c "from django.conf import settings; print('default:', settings.DATABASES['default']['HOST'], settings.DATABASES['default']['PORT']); print('railway:', settings.DATABASES['railway']['HOST'], settings.DATABASES['railway']['PORT'])"
+```
+Expected:
+	•	default: localhost 5432
+	•	railway: ballast.proxy.rlwy.net 17523 (or your Railway proxy host/port)
+
+Run the seeder
+
+From src/:
+```bash
+    python manage.py seed_drones --count 100
+```
+What it does:
+	•	Seeds 100 drones into Railway (DATABASES["railway"])
+	•	Prints:
+	•	DB targets (default vs railway)
+	•	How many rows were actually created on Railway
+	•	Railway total before → after
+	•	Local total before → after (should not change)
+	•	Prints the first 10 newly added drones (from Railway)
+
+You can change the serial prefix:
+```bash
+    python manage.py seed_drones --count 100 --prefix RAIL
+```
+Confirm data in Railway UI
+
+In Railway → Postgres → Data/Query:
+```bash
+    SELECT COUNT(*) AS total_drones FROM drones_drone;
+
+    SELECT id, serial, is_dangerous, last_seen
+    FROM drones_drone
+    ORDER BY id DESC
+    LIMIT 10;
+```
+### Confirm data in Railway (psql)
+
+Railway’s “Data” tab is mainly a table browser. For an exact row count, use `psql`:
+
+1) In Railway: Postgres service → **Connect** → **Public Network**  
+2) Copy the **Raw `psql` command** (it starts with `PGPASSWORD=... psql ...`)  
+3) Paste it into your terminal and run it. You should see a `psql` prompt like `railway=>`
+
+Then run:
+
+```sql
+    SELECT COUNT(*) AS total_drones FROM drones_drone;
+
+    SELECT id, serial, last_seen
+    FROM drones_drone
+    ORDER BY id DESC
+    LIMIT 10;
+```
+Exit psql:
+```sql
+    \q
+```
+
+Local-only checks
+
+Local count (default DB):
+```bash
+    python manage.py shell -c "from drones.models import Drone; print(Drone.objects.count())"
+```
+Railway count (explicit DB alias):
+```bash
+    python manage.py shell -c "from drones.models import Drone; print(Drone.objects.using('railway').count())"
+```
+
 ---
 
 ## MQTT Ingestion
@@ -665,9 +770,4 @@ Check:
         ```bash
             gunicorn cfehome.wsgi:application --bind 0.0.0.0:$PORT
         ```
-
-## Links
-- Web/API: https://sagerinterviewtask.up.railway.app
-- API Docs (Swagger): https://sagerinterviewtask.up.railway.app/api/docs/
-- OpenAPI Schema: https://sagerinterviewtask.up.railway.app/api/schema/
 
