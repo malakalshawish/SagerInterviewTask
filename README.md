@@ -516,6 +516,11 @@ Docker:
 
 Deployment to Railway
 
+This project runs best on Railway as **two services**:
+
+1) **Web/API service** (Gunicorn) — serves REST endpoints
+2) **MQTT Worker service** (`python manage.py run_mqtt`) — ingests MQTT telemetry into Postgres
+
 0) Prerequisites
 	•	Railway account
 	•	GitHub repo with this project pushed
@@ -543,7 +548,7 @@ Required:
 Railway provides:
 	•	DATABASE_URL (use it)
 
-Optional (if you run MQTT worker on Railway too):
+if you run MQTT worker on Railway too:
 	•	MQTT_HOST
 	•	MQTT_PORT
 	•	MQTT_TOPIC
@@ -561,6 +566,11 @@ If you use a boot script, ensure it runs:
 	•	python manage.py migrate
 	•	python manage.py collectstatic --noinput
 	•	gunicorn ...
+```
+After deployment, publish a test message to your broker:
+
+```bash
+mosquitto_pub -h <MQTT_HOST> -p 1883 -t "thing/product/DR-RAILWAY-001/osd" -m '{"serial":"DR-RAILWAY-001","lat":37.7749,"lng":-122.4194,"speed":12.3,"timestamp":"2026-01-01T12:00:00Z"}'
 ```
 5) Verify
 	•	Open the Railway URL
